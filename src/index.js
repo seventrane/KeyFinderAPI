@@ -6,6 +6,15 @@ require('dotenv').config();
 
 const app = require('./app');
 const http = require('http');
+const express = require('express');
+//const cors = require('cors');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const addon = require('../build/Release/addon');
+
+// Enable CORS for all routes
+//app.use(cors());
 
 /**
  * Get port from environment and store in Express.
@@ -76,6 +85,52 @@ function onError(error) {
   }
 }
 
+
+
+const storage = multer.diskStorage({
+  destination: 'uploads/',
+  filename: function (req, file, cb) {
+    // Preserve the original file name
+    cb(null, file.originalname);
+  }
+});
+
+const upload = multer({ storage: storage }); // Use custom storage options
+
+// Define a route to handle HTTP POST requests for file uploads
+app.post('/api/upload', upload.array('audioFiles'), (req, res) => {
+  // Check if files were uploaded
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No files uploaded!' });
+  }
+
+  // Extract file paths from the uploaded files
+  const filePaths = req.files.map(file => file.path);
+
+  // Call the addon function with each file path
+  const results = filePaths.map(filePath => addon.myFunction(filePath));
+
+  // Send the results as JSON response
+  res.json({ success: true, results: results });
+});
+
+// Define a route to handle HTTP GET requests
+app.get('/api/myFunction', (req, res) => {
+    // Extract folderPath from request query parameters
+    const folderPath = req.query.folderPath;
+
+    // Check if folderPath is provided
+    if (!folderPath) {
+        return res.status(400).json({ error: 'Folder path is required' });
+    }
+
+    // Call the addon function with the folderPath
+    const result = addon.myFunction(folderPath);
+
+    // Send the result as JSON response
+    res.json({ result: result });
+});
+
 /**
  * Event listener for HTTP server "listening" event.
  */
@@ -87,3 +142,13 @@ function onListening() {
     : 'port ' + addr.port;
   console.log('App started. Listening on ' + bind);
 }
+
+
+
+
+
+// Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
